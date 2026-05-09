@@ -116,16 +116,29 @@ python benchmarks/benchmark_prefix_cache_long.py
 
 | 层级 | 内容 | 环境要求 |
 |:---|:---|:---|
-| 1-env | 语法编译、依赖和项目导入检测 | CPU |
-| 2-ops | CPU Torch 算子；有 CUDA 时追加 Triton 算子正确性 | CPU / CUDA |
-| 3-single-card | 单卡 tiny model prefill + decode smoke | 1 张 CUDA 卡 |
-| 4-single-node-multi-card | 单机多卡 NCCL all-reduce smoke | 至少 2 张 CUDA 卡 |
-| 5-multi-card | tiny tensor-parallel model smoke | 至少 2 张 CUDA 卡 |
+| 00_env | 语法编译、依赖和项目导入检测 | CPU |
+| 01_ops | CPU Torch 算子、CPU tiny 随机模型；有 CUDA 时追加 Triton 算子正确性 | CPU / CUDA |
+| 02_single_card | 单卡 tiny model prefill + decode smoke | 1 张 CUDA 卡 |
+| 03_single_node_multi_card | 单机多卡 NCCL all-reduce smoke | 至少 2 张 CUDA 卡 |
+| 04_multi_card | tiny tensor-parallel model smoke | 至少 2 张 CUDA 卡 |
+
+对应测试目录：
+
+```text
+pico_vllm/tests/00_env/                    # 环境检测
+pico_vllm/tests/01_ops/                    # CPU/Triton 算子正确性
+pico_vllm/tests/02_single_card/            # 单卡 smoke
+pico_vllm/tests/03_single_node_multi_card/ # 单机多卡 smoke
+pico_vllm/tests/04_multi_card/             # 多卡/TP smoke
+pico_vllm/tests/legacy/                         # 尚未迁移到分层 CI 的历史脚本
+```
+
+默认 CI 不依赖 Qwen 权重下载；tiny model 测试使用随机初始化的小配置模型。
 
 只跑指定层级：
 
 ```bash
-.venv/bin/python scripts/local_ci.py --layer 2-ops
+.venv/bin/python scripts/local_ci.py --layer 01_ops
 ```
 
 查看当前环境下会跑/跳过哪些测试：

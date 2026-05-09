@@ -10,35 +10,15 @@ TESTS_DIR = Path(__file__).resolve().parent
 PACKAGE_DIR = TESTS_DIR.parent
 REPO_ROOT = PACKAGE_DIR.parent
 
-sys.path.insert(0, str(PACKAGE_DIR))
 sys.path.insert(0, str(TESTS_DIR))
-
-LEGACY_SCRIPT_TESTS = {
-    "test_adopt_blocks.py",
-    "test_cuda_graph_model.py",
-    "test_engine.py",
-    "test_evict_recompute.py",
-    "test_hetero_tp_pd.py",
-    "test_kv_transfer.py",
-    "test_kv_transfer_dist.py",
-    "test_kv_transter.py",
-    "test_model.py",
-    "test_pd_engine.py",
-    "test_prefix_cache.py",
-    "test_radix_tree.py",
-    "test_slot.py",
-    "test_tp_forward.py",
-    "test_tp_generate.py",
-    "test_weights.py",
-}
-
+sys.path.insert(0, str(PACKAGE_DIR))
 
 def pytest_ignore_collect(collection_path, config):
     if os.environ.get("PICO_VLLM_COLLECT_LEGACY_TESTS") == "1":
         return False
 
     path = Path(str(collection_path))
-    return path.name in LEGACY_SCRIPT_TESTS
+    return path.is_relative_to(TESTS_DIR) and "legacy" in path.relative_to(TESTS_DIR).parts
 
 
 def _weights_available() -> bool:

@@ -1,12 +1,16 @@
 import os
 import sys
 
+import pytest
 import torch
 import torch.nn.functional as F
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from ops.torch import TorchOps
+
+
+pytestmark = [pytest.mark.cpu, pytest.mark.ops]
 
 
 def _rotate_half(x):

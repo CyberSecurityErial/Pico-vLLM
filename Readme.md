@@ -106,6 +106,42 @@ cd pico_vllm
 python benchmarks/benchmark_prefix_cache_long.py
 ```
 
+### 本地分层 CI
+
+提交前推荐从仓库根目录运行：
+
+```bash
+.venv/bin/python scripts/local_ci.py
+```
+
+本地 CI 会先检测 Python、PyTorch、CUDA、GPU 数量、Triton、权重目录等环境，然后按环境自动选择测试层：
+
+| 层级 | 内容 | 环境要求 |
+|:---|:---|:---|
+| 1-env | 语法编译、依赖和项目导入检测 | CPU |
+| 2-ops | CPU Torch 算子；有 CUDA 时追加 Triton 算子正确性 | CPU / CUDA |
+| 3-single-card | 单卡 tiny model prefill + decode smoke | 1 张 CUDA 卡 |
+| 4-single-node-multi-card | 单机多卡 NCCL all-reduce smoke | 至少 2 张 CUDA 卡 |
+| 5-multi-card | tiny tensor-parallel model smoke | 至少 2 张 CUDA 卡 |
+
+只跑指定层级：
+
+```bash
+.venv/bin/python scripts/local_ci.py --layer 2-ops
+```
+
+查看当前环境下会跑/跳过哪些测试：
+
+```bash
+.venv/bin/python scripts/local_ci.py --list
+```
+
+尚未迁移到分层 CI 的历史脚本默认不参与 `pytest pico_vllm/tests` 收集；如需临时收集旧脚本，可显式设置：
+
+```bash
+PICO_VLLM_COLLECT_LEGACY_TESTS=1 .venv/bin/python -m pytest pico_vllm/tests
+```
+
 ### 运行 TP+PD 异构测试
 
 ```bash

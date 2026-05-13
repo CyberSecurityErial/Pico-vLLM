@@ -5,7 +5,7 @@ from blockmanager import BlockManager
 from model import ModelConfig, Qwen25_15B
 
 
-pytestmark = [pytest.mark.cpu, pytest.mark.ops]
+pytestmark = [pytest.mark.cpu, pytest.mark.single_card]
 
 
 def test_tiny_random_model_prefill_and_forward_decode_on_cpu():

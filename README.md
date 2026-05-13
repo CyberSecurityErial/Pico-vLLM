@@ -61,6 +61,12 @@
 | ITL | ~10ms | ~2ms | 5.2x |
 | Tail Latency | 50ms | 2ms | 25x |
 
+## 近期更新
+
+- 增加纯 CPU Torch 后端的整网推理 smoke，覆盖 tiny 随机模型和本地 Qwen2.5-1.5B 权重推理。
+- 权重加载增加内存检测：默认尝试 float32，内存预算不足时降到 bfloat16，必要时切换逐 tensor streaming 加载，并打印降级原因。
+- 本地分层 CI 增加逐 case 日志，输出保存在 `logs/local_ci/<timestamp>/`，便于查看推理 token、耗时、吞吐和失败上下文。
+
 ## Quick Start
 
 ### 环境要求
@@ -117,8 +123,8 @@ python benchmarks/benchmark_prefix_cache_long.py
 | 层级 | 内容 | 环境要求 |
 |:---|:---|:---|
 | 00_env | 语法编译、依赖和项目导入检测 | CPU |
-| 01_ops | CPU Torch 算子、CPU tiny 随机模型；有 CUDA 时追加 Triton 算子正确性 | CPU / CUDA |
-| 02_single_card | 单卡 tiny model prefill + decode smoke | 1 张 CUDA 卡 |
+| 01_ops | CPU Torch 算子；有 CUDA 时追加 Triton 算子正确性 | CPU / CUDA |
+| 02_single_card | 单设备模型推理 smoke：CPU tiny、CUDA tiny、可选 CPU 真实 Qwen 权重推理 | CPU / 1 张 CUDA 卡 / 本地权重 |
 | 03_single_node_multi_card | 单机多卡 NCCL all-reduce smoke | 至少 2 张 CUDA 卡 |
 | 04_multi_card | tiny tensor-parallel model smoke | 至少 2 张 CUDA 卡 |
 
@@ -127,18 +133,27 @@ python benchmarks/benchmark_prefix_cache_long.py
 ```text
 pico_vllm/tests/00_env/                    # 环境检测
 pico_vllm/tests/01_ops/                    # CPU/Triton 算子正确性
-pico_vllm/tests/02_single_card/            # 单卡 smoke
+pico_vllm/tests/02_single_card/            # 单设备模型推理 smoke
 pico_vllm/tests/03_single_node_multi_card/ # 单机多卡 smoke
 pico_vllm/tests/04_multi_card/             # 多卡/TP smoke
 pico_vllm/tests/legacy/                         # 尚未迁移到分层 CI 的历史脚本
 ```
 
-默认 CI 不依赖 Qwen 权重下载；tiny model 测试使用随机初始化的小配置模型。
+默认 CI 不依赖 Qwen 权重下载；tiny model 测试使用随机初始化的小配置模型。每次运行会在
+`logs/local_ci/<timestamp>/` 下生成 `summary.log` 和逐 case 日志。
 
 只跑指定层级：
 
 ```bash
 .venv/bin/python scripts/local_ci.py --layer 01_ops
+```
+
+显式运行单设备模型层，包括本地权重可用时的 CPU 真实 Qwen 推理：
+
+```bash
+PICO_VLLM_CPU_REAL_PROMPT="Hello,Pico-vLLM" \
+PICO_VLLM_CPU_REAL_MAX_NEW_TOKENS=32 \
+.venv/bin/python scripts/local_ci.py --layer 02_single_card
 ```
 
 查看当前环境下会跑/跳过哪些测试：

@@ -1,9 +1,14 @@
 pico_vllm/weights/
+weights/
 **/__pycache__/
 *.pyc
 **/trace_*.json
 **/profile_*.json
+logs/
 venv/
+.venv/
+.codex
+**/.codex
 .vscode/
 .claude/
 CLAUDE.md

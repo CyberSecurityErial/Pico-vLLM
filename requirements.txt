@@ -1,4 +1,4 @@
-# Core runtime requirements from Readme.md.
+# Core runtime requirements from README.md.
 # Install a CUDA-enabled PyTorch build appropriate for your driver/CUDA stack.
 torch>=2.1
 triton>=2.1

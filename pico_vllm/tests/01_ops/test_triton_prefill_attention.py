@@ -1,10 +1,12 @@
-import sys, os; sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import sys, os; sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 # test_prefill_paged_attention.py
+import pytest
 import torch
 import torch.nn.functional as F
-from kernels.attention import paged_prefill_attention
+from ops.triton.attention import paged_prefill_attention
 
 BLOCK_SIZE = 16
+pytestmark = [pytest.mark.cuda, pytest.mark.ops]
 
 def ref_attention(q, k, v, is_causal=True):
     """

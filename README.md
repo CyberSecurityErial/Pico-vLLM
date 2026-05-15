@@ -70,6 +70,12 @@
 - Triton 2.1+
 - transformers
 
+可选一键配置环境：
+
+```bash
+bash scripts/venv.sh
+```
+
 ### 下载权重
 
 ```bash
@@ -104,6 +110,54 @@ cd pico_vllm
 python benchmarks/benchmark_prefix_cache_long.py
 ```
 
+### 本地分层 CI（CPU/GPU）
+
+提交前推荐从仓库根目录运行：
+
+```bash
+.venv/bin/python scripts/local_ci.py
+```
+
+本地 CI 会先检测 Python、PyTorch、CUDA、GPU 数量、Triton、权重目录等环境，然后按环境自动选择测试层。默认不依赖 Qwen 权重；tiny model 测试使用随机初始化的小配置模型，CPU-only 环境也会覆盖 prefill/decode 路径。本地 `./weights` 可用时，`02_single_card` 层会额外运行真实 Qwen2.5-1.5B 的 CPU 推理 smoke。
+
+| 层级 | 内容 | 环境要求 |
+|:---|:---|:---|
+| 00_env | 语法编译、依赖和项目导入检测 | CPU |
+| 01_ops | CPU Torch 算子；有 CUDA 时追加 Triton 算子正确性 | CPU / CUDA |
+| 02_single_card | 单设备模型推理 smoke：CPU tiny、CUDA tiny、可选 CPU 真实 Qwen 权重推理 | CPU / 1 张 CUDA 卡 / 本地权重 |
+| 03_single_node_multi_card | 单机多卡 NCCL all-reduce smoke | 至少 2 张 CUDA 卡 |
+| 04_multi_card | tiny tensor-parallel model smoke | 至少 2 张 CUDA 卡 |
+
+测试目录按层级组织在 `pico_vllm/tests/` 下，尚未迁移到分层 CI 的历史脚本放在 `pico_vllm/tests/legacy/`。每次运行会在 `logs/local_ci/<timestamp>/` 下生成 `summary.log` 和逐 case 日志，包含 stdout/stderr、pytest 输出、推理 token、耗时、吞吐和失败上下文。
+
+只跑指定层级：
+
+```bash
+.venv/bin/python scripts/local_ci.py --layer 01_ops
+```
+
+显式运行单设备模型层，包括本地权重可用时的 CPU 真实 Qwen 推理：
+
+```bash
+PICO_VLLM_CPU_REAL_PROMPT="Hello,Pico-vLLM" \
+PICO_VLLM_CPU_REAL_MAX_NEW_TOKENS=32 \
+.venv/bin/python scripts/local_ci.py --layer 02_single_card
+```
+
+该测试会 greedy decode 到 `tokenizer.eos_token_id` 或 `PICO_VLLM_CPU_REAL_MAX_NEW_TOKENS` 上限，并打印加载、prefill、decode 计时、吞吐、生成 token ids 和文本。
+
+查看当前环境下会跑/跳过哪些测试：
+
+```bash
+.venv/bin/python scripts/local_ci.py --list
+```
+
+尚未迁移到分层 CI 的历史脚本默认不参与 `pytest pico_vllm/tests` 收集；如需临时收集旧脚本，可显式设置：
+
+```bash
+PICO_VLLM_COLLECT_LEGACY_TESTS=1 .venv/bin/python -m pytest pico_vllm/tests
+```
+
 ### 运行 TP+PD 异构测试
 
 ```bash
@@ -130,12 +184,9 @@ PicovLLM/
     ├── prefix_cache.py       # Prefix Cache 桥接层
     ├── kv_transfer.py        # PD 分离传输层
     │
-    ├── kernels/              # 5 个手写 Triton kernel
-    │   ├── attention.py
-    │   ├── fused_add_norm.py
-    │   ├── fused_rope_kvcache_store.py
-    │   ├── swiglu.py
-    │   └── store_kvcache.py
+    ├── ops/                  # 后端算子抽象与实现
+    │   ├── triton/           # 手写 Triton 算子实现
+    │   └── torch/            # CPU/Torch 算子占位与实现
     │
     ├── tests/                # 单元测试（有废弃）
     ├── benchmarks/           # 性能测试

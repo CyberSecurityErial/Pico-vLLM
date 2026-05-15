@@ -61,12 +61,6 @@
 | ITL | ~10ms | ~2ms | 5.2x |
 | Tail Latency | 50ms | 2ms | 25x |
 
-## 近期更新
-
-- 增加纯 CPU Torch 后端的整网推理 smoke，覆盖 tiny 随机模型和本地 Qwen2.5-1.5B 权重推理。
-- 权重加载增加内存检测：默认尝试 float32，内存预算不足时降到 bfloat16，必要时切换逐 tensor streaming 加载，并打印降级原因。
-- 本地分层 CI 增加逐 case 日志，输出保存在 `logs/local_ci/<timestamp>/`，便于查看推理 token、耗时、吞吐和失败上下文。
-
 ## Quick Start
 
 ### 环境要求
@@ -75,6 +69,12 @@
 - PyTorch 2.1+ (with CUDA)
 - Triton 2.1+
 - transformers
+
+可选一键配置环境：
+
+```bash
+bash scripts/venv.sh
+```
 
 ### 下载权重
 
@@ -110,7 +110,7 @@ cd pico_vllm
 python benchmarks/benchmark_prefix_cache_long.py
 ```
 
-### 本地分层 CI
+### 本地分层 CI（CPU/GPU）
 
 提交前推荐从仓库根目录运行：
 
@@ -118,7 +118,7 @@ python benchmarks/benchmark_prefix_cache_long.py
 .venv/bin/python scripts/local_ci.py
 ```
 
-本地 CI 会先检测 Python、PyTorch、CUDA、GPU 数量、Triton、权重目录等环境，然后按环境自动选择测试层：
+本地 CI 会先检测 Python、PyTorch、CUDA、GPU 数量、Triton、权重目录等环境，然后按环境自动选择测试层。默认不依赖 Qwen 权重；tiny model 测试使用随机初始化的小配置模型，CPU-only 环境也会覆盖 prefill/decode 路径。本地 `./weights` 可用时，`02_single_card` 层会额外运行真实 Qwen2.5-1.5B 的 CPU 推理 smoke。
 
 | 层级 | 内容 | 环境要求 |
 |:---|:---|:---|
@@ -128,19 +128,7 @@ python benchmarks/benchmark_prefix_cache_long.py
 | 03_single_node_multi_card | 单机多卡 NCCL all-reduce smoke | 至少 2 张 CUDA 卡 |
 | 04_multi_card | tiny tensor-parallel model smoke | 至少 2 张 CUDA 卡 |
 
-对应测试目录：
-
-```text
-pico_vllm/tests/00_env/                    # 环境检测
-pico_vllm/tests/01_ops/                    # CPU/Triton 算子正确性
-pico_vllm/tests/02_single_card/            # 单设备模型推理 smoke
-pico_vllm/tests/03_single_node_multi_card/ # 单机多卡 smoke
-pico_vllm/tests/04_multi_card/             # 多卡/TP smoke
-pico_vllm/tests/legacy/                         # 尚未迁移到分层 CI 的历史脚本
-```
-
-默认 CI 不依赖 Qwen 权重下载；tiny model 测试使用随机初始化的小配置模型。每次运行会在
-`logs/local_ci/<timestamp>/` 下生成 `summary.log` 和逐 case 日志。
+测试目录按层级组织在 `pico_vllm/tests/` 下，尚未迁移到分层 CI 的历史脚本放在 `pico_vllm/tests/legacy/`。每次运行会在 `logs/local_ci/<timestamp>/` 下生成 `summary.log` 和逐 case 日志，包含 stdout/stderr、pytest 输出、推理 token、耗时、吞吐和失败上下文。
 
 只跑指定层级：
 
@@ -155,6 +143,8 @@ PICO_VLLM_CPU_REAL_PROMPT="Hello,Pico-vLLM" \
 PICO_VLLM_CPU_REAL_MAX_NEW_TOKENS=32 \
 .venv/bin/python scripts/local_ci.py --layer 02_single_card
 ```
+
+该测试会 greedy decode 到 `tokenizer.eos_token_id` 或 `PICO_VLLM_CPU_REAL_MAX_NEW_TOKENS` 上限，并打印加载、prefill、decode 计时、吞吐、生成 token ids 和文本。
 
 查看当前环境下会跑/跳过哪些测试：
 
